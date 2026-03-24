@@ -343,139 +343,59 @@ ORDER BY
 -- Вывести автомобили с низкой средней позицией по условиям задания
 -- =========================================================
 SELECT
-	car_stats.car_name,
-	car_stats.car_class,
-	car_stats.average_position,
-	car_stats.race_count,
-	car_stats.car_country,
-	class_totals.total_races
-FROM
-	(
-	SELECT
-		c.name AS car_name,
-		c.class AS car_class,
-		ROUND(AVG(r.position), 4) AS average_position,
-		COUNT(*) AS race_count,
-		cl.country AS car_country
-	FROM
-		Cars c
-	JOIN Results r ON
-		c.name = r.car
-	JOIN Classes cl ON
-		c.class = cl.class
-	GROUP BY
-		c.name,
-		c.class,
-		cl.country
-	HAVING
-		AVG(r.position) > 3.0
+    car_stats.car_name,
+    car_stats.car_class,
+    car_stats.average_position,
+    car_stats.race_count,
+    car_stats.car_country,
+    class_totals.total_races,
+    low_class_counts.low_position_count
+FROM (
+    SELECT
+        c.name AS car_name,
+        c.class AS car_class,
+        ROUND(AVG(r.position), 4) AS average_position,
+        COUNT(*) AS race_count,
+        cl.country AS car_country
+    FROM Cars c
+    JOIN Results r ON c.name = r.car
+    JOIN Classes cl ON c.class = cl.class
+    GROUP BY
+        c.name,
+        c.class,
+        cl.country
+    HAVING AVG(r.position) > 3.0
 ) AS car_stats
 JOIN (
-	SELECT
-		c.class AS car_class,
-		COUNT(*) AS total_races
-	FROM
-		Cars c
-	JOIN Results r ON
-		c.name = r.car
-	GROUP BY
-		c.class
+    SELECT
+        c.class AS car_class,
+        COUNT(*) AS total_races
+    FROM Cars c
+    JOIN Results r ON c.name = r.car
+    GROUP BY c.class
 ) AS class_totals
-    ON
-	car_stats.car_class = class_totals.car_class
+    ON car_stats.car_class = class_totals.car_class
 JOIN (
-	SELECT
-		low_classes.car_class,
-		low_classes.low_count
-	FROM
-		(
-		SELECT
-			c.class AS car_class,
-			COUNT(*) AS low_count
-		FROM
-			(
-			SELECT
-				c.name,
-				c.class,
-				AVG(r.position) AS avg_pos
-			FROM
-				Cars c
-			JOIN Results r ON
-				c.name = r.car
-			GROUP BY
-				c.name,
-				c.class
-			HAVING
-				AVG(r.position) > 3.0
-        ) AS low_cars
-		JOIN Cars c ON
-			low_cars.name = c.name
-		GROUP BY
-			c.class
-    ) AS low_classes
-	WHERE
-		low_classes.low_count = (
-		SELECT
-			MAX(class_count.low_count)
-		FROM
-			(
-			SELECT
-				c.class AS car_class,
-				COUNT(*) AS low_count
-			FROM
-				(
-				SELECT
-					c.name,
-					c.class,
-					AVG(r.position) AS avg_pos
-				FROM
-					Cars c
-				JOIN Results r ON
-					c.name = r.car
-				GROUP BY
-					c.name,
-					c.class
-				HAVING
-					AVG(r.position) > 3.0
-            ) AS low_cars
-			JOIN Cars c ON
-				low_cars.name = c.name
-			GROUP BY
-				c.class
-        ) AS class_count
-    )
-		OR low_classes.low_count < (
-		SELECT
-			MAX(class_count.low_count)
-		FROM
-			(
-			SELECT
-				c.class AS car_class,
-				COUNT(*) AS low_count
-			FROM
-				(
-				SELECT
-					c.name,
-					c.class,
-					AVG(r.position) AS avg_pos
-				FROM
-					Cars c
-				JOIN Results r ON
-					c.name = r.car
-				GROUP BY
-					c.name,
-					c.class
-				HAVING
-					AVG(r.position) > 3.0
-            ) AS low_cars
-			JOIN Cars c ON
-				low_cars.name = c.name
-			GROUP BY
-				c.class
-        ) AS class_count
-    )
-) AS best_classes
-    ON
-	car_stats.car_class = best_classes.car_class
+    SELECT
+        low_cars.car_class,
+        COUNT(*) AS low_position_count
+    FROM (
+        SELECT
+            c.name AS car_name,
+            c.class AS car_class,
+            AVG(r.position) AS avg_pos
+        FROM Cars c
+        JOIN Results r ON c.name = r.car
+        GROUP BY
+            c.name,
+            c.class
+        HAVING AVG(r.position) > 3.0
+    ) AS low_cars
+    GROUP BY low_cars.car_class
+) AS low_class_counts
+    ON car_stats.car_class = low_class_counts.car_class
 ORDER BY
-	best_classes.low_count DESC, class_totals.total_races DESC, car_stats.car_class, car_stats.average_position;
+    low_class_counts.low_position_count DESC,
+    class_totals.total_races DESC,
+    car_stats.car_class,
+    car_stats.average_position;
